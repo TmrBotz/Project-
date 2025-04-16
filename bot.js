@@ -30,24 +30,25 @@ bot.start(async (ctx) => {
   }
 
   ctx.replyWithHTML(
-  `<b>Welcome to Secure File Storage Bot!</b>\n\n` +
-  `Instructions:\n` +
-  `1. Send any file, photo, video, or sticker.\n` +
-  `2. You'll get a unique shareable link.\n` +
-  `3. Files are stored privately.`,
-  {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Join Our Channel",
-            url: "https://t.me/Sky_Hub4u" // change to your actual link
-          }
+    `<b>Welcome to Secure File Storage Bot!</b>\n\n` +
+    `Instructions:\n` +
+    `1. Send any file, photo, video, or sticker.\n` +
+    `2. You'll get a unique shareable link.\n` +
+    `3. Files are stored privately.`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Join Our Channel",
+              url: "https://t.me/YourChannelUsername" // change to your actual link
+            }
+          ]
         ]
-      ]
+      }
     }
-  }
-);
+  );
+});
 
 bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
   try {
