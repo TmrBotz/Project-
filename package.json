@@ -1,14 +1,14 @@
 {
   "name": "telegram-movie-bot",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
+  "description": "Telegram bot to fetch movie details from OMDb and post to channel",
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "dotenv": "^16.3.1",
+    "axios": "^1.6.7",
+    "express": "^4.18.2",
     "node-telegram-bot-api": "^0.61.0"
   }
 }
