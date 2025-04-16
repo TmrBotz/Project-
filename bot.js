@@ -1,45 +1,52 @@
 const { Telegraf } = require('telegraf');
 const crypto = require('crypto');
+const express = require('express');
+const app = express();
 
-// === CONFIG ===
+// === CONFIGURATION ===
 const BOT_TOKEN = '7861502352:AAHnJW2xDIZ6DL1khVo1Hw4mXvNYG5pa4pM'; // Replace with your Bot Token
-const CHANNEL_ID = '-1001001991464977'; // Replace with your Channel username or ID
-const JOIN_CHANNELS = ['@Skyhub4u']; // Add required join channels
-const PORT = process.env.PORT || 3000; // Default to 3000 if not set
-// ==============
+const CHANNEL_ID = '-1001001991464977'; // Private channel ID for storing files
+const JOIN_CHANNELS = ['-1001001991464977']; // Private channel IDs for force-subscription
+const PORT = process.env.PORT || 3000;
+// ======================
 
 const bot = new Telegraf(BOT_TOKEN);
 const fileStorage = {};
 
+// Generate random ID
 function generateRandomId() {
   return crypto.randomBytes(5).toString('hex');
 }
 
-async function isUserInChannel(ctx) {
+// Force subscription check
+async function isUserInAllChannels(ctx) {
   const userId = ctx.from.id;
-
-  for (const channel of JOIN_CHANNELS) {
+  for (const channelId of JOIN_CHANNELS) {
     try {
-      const member = await ctx.telegram.getChatMember(channel, userId);
-      if (['member', 'administrator', 'creator'].includes(member.status)) {
-        return true;
+      const member = await ctx.telegram.getChatMember(channelId, userId);
+      if (!['member', 'administrator', 'creator'].includes(member.status)) {
+        return false;
       }
-    } catch (e) {
-      // Ignore
+    } catch {
+      return false;
     }
   }
-
-  return false;
+  return true;
 }
 
+// Get HTML links for join channels
+function getJoinLinksHTML() {
+  return JOIN_CHANNELS.map(id => `<a href="https://t.me/c/${id.replace('-100', '')}">Join Channel</a>`).join('\n');
+}
+
+// /start handler
 bot.start(async (ctx) => {
   const args = ctx.message.text.split(" ");
 
-  if (!(await isUserInChannel(ctx))) {
-    const links = JOIN_CHANNELS.map(ch => `<a href="https://t.me/${ch.replace('@', '')}">${ch}</a>`).join('\n');
+  if (!(await isUserInAllChannels(ctx))) {
     return ctx.reply(
-      `To use this bot, please join the following channel(s):\n${links}`,
-      { parse_mode: 'HTML' }
+      `To use this bot, please join the required channel(s):\n${getJoinLinksHTML()}`,
+      { parse_mode: 'HTML', disable_web_page_preview: true }
     );
   }
 
@@ -66,8 +73,18 @@ bot.start(async (ctx) => {
   );
 });
 
+// File/media handler
 bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
   try {
+    // Check if user has joined required channels
+    if (!(await isUserInAllChannels(ctx))) {
+      return ctx.reply(
+        `To use this bot, please join the required channel(s):\n${getJoinLinksHTML()}`,
+        { parse_mode: 'HTML', disable_web_page_preview: true }
+      );
+    }
+
+    // Forward to private channel
     await ctx.telegram.forwardMessage(
       CHANNEL_ID,
       ctx.chat.id,
@@ -100,19 +117,30 @@ bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
 
     const botInfo = await bot.telegram.getMe();
     const link = `https://t.me/${botInfo.username}?start=${randomId}`;
-    ctx.reply(`Your file has been securely saved!\nAccess it anytime using this link: ${link}`);
+
+    ctx.reply(
+      `Your file has been securely saved!\nAccess it anytime using this link:\n<b><a href="${link}">Click to Retrieve</a></b>`,
+      { parse_mode: 'HTML', disable_web_page_preview: true }
+    );
   } catch (err) {
     ctx.reply(`An error occurred: ${err.message}`);
   }
 });
 
+// Fallback handler
 bot.on('message', (ctx) => {
   ctx.reply("Invalid command. Use /start to begin.");
 });
 
-// Optional: listen on PORT if needed
-// This is not necessary for polling, but added for future webhook use
+// Web server for Render
+app.get('/', (req, res) => {
+  res.send('Bot is running...');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
 bot.launch().then(() => {
-  console.log(`Bot started using long polling...`);
-  console.log(`Listening on PORT ${PORT} (not used unless webhooks enabled)`);
+  console.log("Bot launched successfully.");
 });
