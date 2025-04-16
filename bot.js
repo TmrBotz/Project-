@@ -35,6 +35,18 @@ bot.start(async (ctx) => {
     `1. Send any file, photo, video, or sticker.\n` +
     `2. You'll get a unique shareable link.\n` +
     `3. Files are stored privately.`
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Join Our Channel",
+              url: "https://t.me/YourChannelUsername" // change to your actual link
+            }
+          ]
+        ]
+      }
+    }
   );
 });
 
