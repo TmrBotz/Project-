@@ -1,70 +1,118 @@
-const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
-const express = require('express');
-const app = express();
+const { Telegraf } = require('telegraf');
+const crypto = require('crypto');
 
-// ==== CONFIGURATION ====
-const BOT_TOKEN = '7861502352:AAHnJW2xDIZ6DL1khVo1Hw4mXvNYG5pa4pM';
-const OMDB_API_KEY = '19340f98';
-const SOURCE_CHANNEL_ID = '-1001991464977';  // Replace with source channel ID
-const DEST_CHANNEL_ID = '-1002178270630';    // Replace with destination channel ID
+// === CONFIG ===
+const BOT_TOKEN = '7861502352:AAHnJW2xDIZ6DL1khVo1Hw4mXvNYG5pa4pM'; // Replace with your Bot Token
+const CHANNEL_ID = '-1001001991464977'; // Replace with your Channel username or ID
+const JOIN_CHANNELS = ['@Skyhub4u']; // Add required join channels
+const PORT = process.env.PORT || 3000; // Default to 3000 if not set
+// ==============
 
-const BUTTON_TEXT = "Join Channel";
-const BUTTON_URL = "https://t.me/yourchannel"; // Replace with your channel URL
+const bot = new Telegraf(BOT_TOKEN);
+const fileStorage = {};
 
-// =========================
+function generateRandomId() {
+  return crypto.randomBytes(5).toString('hex');
+}
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-const postedMovies = new Set(); // To prevent duplicate posting
+async function isUserInChannel(ctx) {
+  const userId = ctx.from.id;
 
-// /start command
-bot.onText(/\/start/, (msg) => {
-  const name = msg.from.first_name || "there";
-  bot.sendMessage(msg.chat.id, `Hi ${name}!\n\nThis bot fetches movie details from OMDb and posts them to a channel when a movie file is uploaded in the source channel.`);
+  for (const channel of JOIN_CHANNELS) {
+    try {
+      const member = await ctx.telegram.getChatMember(channel, userId);
+      if (['member', 'administrator', 'creator'].includes(member.status)) {
+        return true;
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  return false;
+}
+
+bot.start(async (ctx) => {
+  const args = ctx.message.text.split(" ");
+
+  if (!(await isUserInChannel(ctx))) {
+    const links = JOIN_CHANNELS.map(ch => `<a href="https://t.me/${ch.replace('@', '')}">${ch}</a>`).join('\n');
+    return ctx.reply(
+      `To use this bot, please join the following channel(s):\n${links}`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  if (args.length > 1) {
+    const fileId = args[1];
+    const fileData = fileStorage[fileId];
+    if (fileData) {
+      return ctx.replyWithDocument(fileData.file_id, {
+        caption: `File Name: ${fileData.file_name}\nFile Size: ${fileData.file_size}`
+      });
+    } else {
+      return ctx.reply("Invalid file link or the file does not exist.");
+    }
+  }
+
+  ctx.reply(
+    "Welcome to the <b>Secure File Storage Bot!</b>\n\n" +
+    "<b>Instructions:</b>\n" +
+    "1. Send me any file, photo, video, or sticker.\n" +
+    "2. I will securely store it and generate a unique link for access.\n" +
+    "3. Use the link to retrieve the file anytime.\n" +
+    "4. Your files are stored securely and privately.",
+    { parse_mode: 'HTML' }
+  );
 });
 
-// Handle messages from source channel
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id.toString();
-  if (chatId !== SOURCE_CHANNEL_ID) return;
-
-  const caption = msg.caption;
-  const isValidFile = msg.document || msg.video;
-
-  if (!caption || !isValidFile) return;
-
-  const movieQuery = caption.trim().toLowerCase();
-  if (postedMovies.has(movieQuery)) return;
-
+bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
   try {
-    const res = await axios.get(`https://www.omdbapi.com/?t=${encodeURIComponent(movieQuery)}&apikey=${OMDB_API_KEY}`);
-    const data = res.data;
+    await ctx.telegram.forwardMessage(
+      CHANNEL_ID,
+      ctx.chat.id,
+      ctx.message.message_id
+    );
 
-    if (data.Response === 'False') return;
+    const randomId = generateRandomId();
+    let file_id = '';
+    let file_name = 'Unknown';
+    let file_size = 'Unknown';
+    const msg = ctx.message;
 
-    postedMovies.add(movieQuery);
-
-    const text = `*Movie Name:* ${data.Title}\n*Year:* ${data.Year}\n*Language:* ${data.Language}\n*IMDb Rating:* ${data.imdbRating}\n*Plot:* ${data.Plot}`;
-
-    const options = {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [[{ text: BUTTON_TEXT, url: BUTTON_URL }]]
-      }
-    };
-
-    if (data.Poster && data.Poster !== 'N/A') {
-      await bot.sendPhoto(DEST_CHANNEL_ID, data.Poster, { caption: text, ...options });
+    if (msg.document) {
+      file_id = msg.document.file_id;
+      file_name = msg.document.file_name;
+      file_size = `${(msg.document.file_size / 1024).toFixed(2)} KB`;
+    } else if (msg.sticker) {
+      file_id = msg.sticker.file_id;
+      file_name = 'Sticker';
     } else {
-      await bot.sendMessage(DEST_CHANNEL_ID, text, options);
+      file_id = msg.video?.file_id || msg.photo?.slice(-1)[0]?.file_id || msg.audio?.file_id || '';
+      file_name = msg.video?.file_name || 'Media File';
     }
 
+    fileStorage[randomId] = {
+      file_id,
+      file_name,
+      file_size
+    };
+
+    const botInfo = await bot.telegram.getMe();
+    const link = `https://t.me/${botInfo.username}?start=${randomId}`;
+    ctx.reply(`Your file has been securely saved!\nAccess it anytime using this link: ${link}`);
   } catch (err) {
-    console.error("Error fetching movie from OMDb:", err.message);
+    ctx.reply(`An error occurred: ${err.message}`);
   }
 });
 
-// Keep server alive on Render
-const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot is running...'));
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+bot.on('message', (ctx) => {
+  ctx.reply("Invalid command. Use /start to begin.");
+});
+
+// Optional: listen on PORT if needed
+// This is not necessary for polling, but added for future webhook use
+bot.launch().then(() => {
+  console.log(`Bot started using long polling...`);
+  console.log(`Listening on PORT ${PORT} (not used unless webhooks enabled)`);
+});
