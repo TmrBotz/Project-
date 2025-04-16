@@ -15,22 +15,23 @@ const BUTTON_URL = "https://t.me/yourchannel"; // Replace with your channel URL
 // =========================
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-const postedMovies = new Set(); // to avoid duplicates
+const postedMovies = new Set(); // To prevent duplicate posting
 
-// /start command handler
+// /start command
 bot.onText(/\/start/, (msg) => {
   const name = msg.from.first_name || "there";
   bot.sendMessage(msg.chat.id, `Hi ${name}!\n\nThis bot fetches movie details from OMDb and posts them to a channel when a movie file is uploaded in the source channel.`);
 });
 
-// Handle new messages
+// Handle messages from source channel
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id.toString();
-
   if (chatId !== SOURCE_CHANNEL_ID) return;
 
   const caption = msg.caption;
-  if (!caption || (!msg.document && !msg.video)) return;
+  const isValidFile = msg.document || msg.video;
+
+  if (!caption || !isValidFile) return;
 
   const movieQuery = caption.trim().toLowerCase();
   if (postedMovies.has(movieQuery)) return;
@@ -59,11 +60,11 @@ bot.on('message', async (msg) => {
     }
 
   } catch (err) {
-    console.error("OMDb Fetch Error:", err.message);
+    console.error("Error fetching movie from OMDb:", err.message);
   }
 });
 
-// ==== Dummy server to keep Render service alive ====
+// Keep server alive on Render
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running...'));
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
