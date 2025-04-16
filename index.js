@@ -9,11 +9,21 @@ const DEST_CHANNEL_ID = process.env.DEST_CHANNEL_ID;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
 
 const BUTTON_TEXT = "Join Channel";
-const BUTTON_URL = "https://t.me/yourchannel"; // replace with your actual channel
+const BUTTON_URL = "https://t.me/yourchannel"; // ← Replace with your channel URL
 
-// Cache to avoid duplicate movie posts
+// Track posted movies to avoid duplicates
 const postedMovies = new Set();
 
+// Handle /start command
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  const userName = msg.from.first_name || "there";
+
+  const welcomeMessage = `Hello ${userName}!\n\nThis bot fetches movie details automatically from OMDb API when a movie file is posted in a specific Telegram channel.\n\nEnjoy!`;
+  bot.sendMessage(chatId, welcomeMessage);
+});
+
+// Handle movie uploads
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
 
@@ -25,7 +35,7 @@ bot.on('message', async (msg) => {
 
     const movieName = caption.trim().toLowerCase();
     if (postedMovies.has(movieName)) {
-      console.log(`Skipping duplicate movie: ${movieName}`);
+      console.log(`Already posted: ${movieName}`);
       return;
     }
 
@@ -34,11 +44,11 @@ bot.on('message', async (msg) => {
       const data = response.data;
 
       if (data.Response === 'False') {
-        console.log(`Movie not found: ${movieName}`);
-        return;  // Do not post anything
+        console.log(`Not found on OMDb: ${movieName}`);
+        return; // Don’t post anything
       }
 
-      postedMovies.add(movieName);  // Mark this movie as posted
+      postedMovies.add(movieName);
 
       const text = `*Movie Name:* ${data.Title}\n*Year:* ${data.Year}\n*Language:* ${data.Language}\n*IMDb Rating:* ${data.imdbRating}\n*Plot:* ${data.Plot}`;
 
@@ -61,7 +71,7 @@ bot.on('message', async (msg) => {
       }
 
     } catch (error) {
-      console.error("Error fetching movie details:", error.message);
+      console.error("Fetch failed:", error.message);
     }
   }
 });
