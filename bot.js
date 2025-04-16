@@ -58,7 +58,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
 
     fileStorage[randomId] = {
       file_id,
-      caption: <b> ctx.message.caption </b>
+      caption: ctx.message.caption
     };
 
     const fileLink = `https://t.me/${ctx.botInfo.username}?start=${randomId}`;
