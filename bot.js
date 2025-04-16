@@ -3,8 +3,8 @@ const express = require("express");
 const app = express();
 
 const bot = new Telegraf("7861502352:AAHnJW2xDIZ6DL1khVo1Hw4mXvNYG5pa4pM"); // Replace with your bot token
+const CHANNEL_ID = "-1001991464977"; // Replace with your private channel ID
 
-const CHANNEL_ID = "-1001991464977"; // Private storage channel ID
 const fileStorage = {};
 
 function generateRandomId() {
@@ -19,9 +19,20 @@ bot.start(async (ctx) => {
     const randomId = text.split(" ")[1];
     if (fileStorage[randomId]) {
       const fileData = fileStorage[randomId];
-      return await ctx.replyWithDocument(fileData.file_id, {
-        caption: `File Name: ${fileData.file_name}\nFile Size: ${fileData.file_size}`
-      });
+
+      const extraOptions = {
+        caption: fileData.caption || '',
+        parse_mode: "HTML"
+      };
+
+      if (fileData.file_name) {
+        extraOptions.filename = fileData.file_name;
+      }
+
+      return await ctx.replyWithDocument(
+        { file_id: fileData.file_id, filename: fileData.file_name },
+        extraOptions
+      );
     } else {
       return ctx.reply("Invalid or expired link.");
     }
@@ -45,6 +56,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
     );
 
     const randomId = generateRandomId();
+    const caption = ctx.message.caption || "";
 
     let file_id = null;
     let file_name = "Unknown";
@@ -54,34 +66,35 @@ bot.on(['document', 'photo', 'video', 'audio', 'sticker'], async (ctx) => {
       file_id = ctx.message.document.file_id;
       file_name = ctx.message.document.file_name || "Document";
       file_size = `${(ctx.message.document.file_size / 1024).toFixed(2)} KB`;
-    } else if (ctx.message.sticker) {
-      file_id = ctx.message.sticker.file_id;
-      file_name = "Sticker";
     } else if (ctx.message.video) {
       file_id = ctx.message.video.file_id;
-      file_name = "Video";
+      file_name = "Video.mp4";
       file_size = `${(ctx.message.video.file_size / 1024).toFixed(2)} KB`;
     } else if (ctx.message.audio) {
       file_id = ctx.message.audio.file_id;
-      file_name = ctx.message.audio.file_name || "Audio";
+      file_name = ctx.message.audio.file_name || "Audio.mp3";
       file_size = `${(ctx.message.audio.file_size / 1024).toFixed(2)} KB`;
     } else if (ctx.message.photo) {
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
       file_id = photo.file_id;
-      file_name = "Photo";
+      file_name = "Photo.jpg";
       file_size = `${(photo.file_size / 1024).toFixed(2)} KB`;
+    } else if (ctx.message.sticker) {
+      file_id = ctx.message.sticker.file_id;
+      file_name = "Sticker.webp";
     }
 
     fileStorage[randomId] = {
       file_id,
       file_name,
-      file_size
+      file_size,
+      caption
     };
 
     const fileLink = `https://t.me/${ctx.botInfo.username}?start=${randomId}`;
 
     await ctx.replyWithHTML(
-      `✅ Your file has been saved securely!\n\n` +
+      `✅ <b>Your file has been saved!</b>\n\n` +
       `<b>Link:</b> <a href="${fileLink}">${fileLink}</a>`
     );
   } catch (err) {
@@ -94,7 +107,7 @@ bot.on("message", async (ctx) => {
   ctx.reply("Invalid command. Use /start to begin.");
 });
 
-// Express server for Render
+// Web server for Render
 app.get("/", (req, res) => {
   res.send("Bot is running!");
 });
