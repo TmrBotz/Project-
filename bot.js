@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 
 const bot = new Telegraf("7861502352:AAHnJW2xDIZ6DL1khVo1Hw4mXvNYG5pa4pM"); // Replace with your bot token
-const CHANNEL_ID = "-1001991464977"; // Replace with your private channel ID
+const CHANNEL_ID = "-1002591664525"; // Replace with your private channel ID
 const fileStorage = {};
 
 function generateRandomId() {
