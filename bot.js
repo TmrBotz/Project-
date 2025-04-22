@@ -41,7 +41,7 @@ bot.start(async (ctx) => {
           [
             {
               text: "Join Our Channel",
-              url: "https://t.me/Sky_Hub4u" // change to your actual link
+              url: "https://t.me/Tmr_Botz" // change to your actual link
             }
           ]
         ]
